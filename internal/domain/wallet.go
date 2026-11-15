@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"time"
+
 )
 
 // MaxDepositCents es el depósito máximo permitido: S/ 5 000.00
@@ -31,6 +32,7 @@ var (
 	ErrInvalidIdempotency  = errors.New("la clave de idempotencia es obligatoria (máximo 100 caracteres)")
 	ErrWalletNotFound      = errors.New("billetera no enontrada")
 	ErrIdempotencyConflict = errors.New("la clave de idempotencia ya se usó con otros datos")
+	ErrInsufficientFunds   = errors.New("saldo insufienciente")
 )
 
 // Wallet es la billetera de un usuario. Los montos van en céntimos.
@@ -64,10 +66,9 @@ func (w *Wallet) Deposit(amountCents int64, idempotencyKey string) (WalletTrasac
 	if amountCents > MaxDepositCents {
 		return WalletTrasaction{}, ErrDepositLimit
 	}
-
-	key := strings.TrimSpace(idempotencyKey)
-	if key == "" || len(key) > MaxIdempotencyKeyLength {
-		return WalletTrasaction{}, ErrInvalidIdempotency
+	key, err := normalizeIdempotencyKey(idempotencyKey)
+	if err != nil {
+		return WalletTrasaction{}, err
 	}
 
 	w.BalanceCents += amountCents
@@ -80,4 +81,41 @@ func (w *Wallet) Deposit(amountCents int64, idempotencyKey string) (WalletTrasac
 		IdempotencyKey:    key,
 	}, nil
 
+}
+
+// Withdraw resta amountCents del saldo y devuelve el movimiento que lo registra.
+// En el ledger, el monto de un retiro se guarda en negativo.
+// Si algo no es válido o no alcanza el saldo, el sado no cambia.
+func (w *Wallet) Withdraw(amountCents int64, idempotencyKey string) (WalletTrasaction, error){
+
+	// agregamos la regla
+	if amountCents <= 0 {
+		return WalletTrasaction{}, ErrInvalidAmount
+	}
+	key, err := normalizeIdempotencyKey(idempotencyKey)
+	if err != nil {
+		return WalletTrasaction{}, err
+	}
+	if amountCents > w.BalanceCents {
+		return WalletTrasaction{}, ErrInsufficientFunds
+	}
+	w.BalanceCents -= amountCents
+
+	return WalletTrasaction{
+		WalletID: w.ID,
+		Type: TxWithdrawal,
+		AmountCents: -amountCents,
+		BalanceAfterCents: w.BalanceCents,
+		IdempotencyKey: key,
+	}, nil
+}
+
+
+// normalizeIdempotencyKey limpiar la clave y revisa que sea válida
+func normalizeIdempotencyKey(raw string) (string, error) {
+	key := strings.TrimSpace(raw)
+	if key == "" || len(key) > MaxIdempotencyKeyLength {
+		return "", ErrInvalidIdempotency
+	}
+	return key, nil
 }
