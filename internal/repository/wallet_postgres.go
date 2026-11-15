@@ -53,6 +53,63 @@ FROM wallets
 WHERE user_id = $1 AND type = 'real' AND currency = 'PEN'
 `
 
+// Primera página: los movimientos más recientes de la billetera real del usuario.
+const listTransactionsFirstPageSQL = `
+SELECT t.id, t.wallet_id, t.type, t.amount_cents, t.balance_after_cents, t.idempotency_key, t.created_at
+FROM wallet_transactions t
+JOIN wallets w ON w.id = t.wallet_id 
+WHERE w.user_id = $1 AND w.type = 'real' AND w.currency = 'PEN'
+ORDER BY t.created_at DESC, t.id DESC 
+LIMIT $2 
+`
+
+// Páginas siguientes: los que vienen DESPUÉS del cursor (mas antiguos)
+const listTransactionsAfterCursorSQL = `
+SELECT t.id, t.wallet_id, t.type, t.amount_cents, t.balance_after_cents, t.idempotency_key, t.created_at
+FROM wallet_transactions t
+JOIN wallets w ON w.id = t.wallet_id 
+WHERE w.user_id = $1 AND w.type = 'real' AND w.currency = 'PEN'
+ AND (t.created_at, t.id) < ($3, $4)
+ORDER BY t.created_at DESC, t.id DESC
+LIMIT $2
+`
+
+// todo aqui se consulta a la bd
+// función que lista las transacciones devuelve hasta limit movimientos del usuario, del asmas reciente al mas antiguo
+func (r *WalletPostgres) ListTransactions(ctx context.Context, userID string, after *domain.TxCursor, limit int) (items[]domain.WalletTransaction, hasMore bool, err error) {
+	// Pedimos uno más de los necesarios: si llega, sabemos que hay otra página
+	fetch := limit + 1
+
+	var rows pgx.Rows
+	if after == nil {
+		rows, err = r.pool.Query(ctx, listTransactionsFirstPageSQL, userID, fetch)
+	} else {
+		rows, err = r.pool.Query(ctx, listTransactionsAfterCursorSQL, userID, fetch, after.CreatedAt, after.ID)
+	}
+	if err != nil {
+		return nil, false, fmt.Errorf("listar movimientos: %w", err)
+	}
+	defer rows.Close()
+
+	items = make([]domain.WalletTransaction, 0, fetch)
+	for rows.Next() {
+		var t domain.WalletTransaction
+		var txType string
+		if err := rows.Scan(&t.ID, &t.WalletID, &txType, &t.AmountCents, &t.BalanceAfterCents, &t.IdempotencyKey, &t.CreatedAt); err != nil {
+			return nil, false, fmt.Errorf("leer movimiento: %w", err)
+		}
+		t.Type = domain.TransactionType(txType)
+		items = append(items, t)
+	}	
+	if err := rows.Err(); err != nil {
+		return nil,  false, fmt.Errorf("recorrer movimientos: %w", err)
+	}
+	if len(items) >limit {
+		return items[:limit], true, nil
+	}
+	return items, false, nil
+}
+
 // FinfByUser devuelve la billetera real en soles del usuario
 // Si no existe, devuelve domain.ErrWalletNotFound
 func (r *WalletPostgres) FindByUser(ctx context.Context, userID string) (domain.Wallet, error) {

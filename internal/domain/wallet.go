@@ -56,6 +56,13 @@ type WalletTransaction struct {
 	CreatedAt         time.Time
 }
 
+// TxCursor marca la posición del último movimiento visto en el historial
+// CreatedAt ordena; ID desempata cuando dos movimientos tienen la misma hora
+type TxCursor struct {
+	CreatedAt time.Time
+	ID        string
+}
+
 // Deposit suma amountCents al saldo y devuelve el movimiento que lo registra.
 // si algo no es válido, el saldo no cambia.
 func (w *Wallet) Deposit(amountCents int64, idempotencyKey string) (WalletTransaction, error) {

@@ -214,3 +214,64 @@ func TestWalletPostgres_RetirosConcurrentes(t *testing.T) {
 	}
 	assertLedgerMatches(t, pool, walletID, 0)
 }
+
+func TestWalletPostgres_ListTransactions_Paginacion(t *testing.T) {
+	pool := newTestPool(t)
+	userID, walletID := createUserWithWallet(t, pool, "ana@golazo.pe", "12345678")
+	repo := repository.NewWalletPostgres(pool)
+	ctx := context.Background()
+
+	// 5 movimientos normales, cada uno en su propia transacción.
+	for i := 1; i <= 5; i++ {
+		if _, _, err := repo.Deposit(ctx, userID, walletID, int64(i*100), fmt.Sprintf("dep-%d", i)); err != nil {
+			t.Fatalf("depósito %d: %v", i, err)
+		}
+	}
+	// 3 movimientos con EXACTAMENTE la misma hora, para forzar el empate.
+	_, err := pool.Exec(ctx, `
+		INSERT INTO wallet_transactions (wallet_id, type, amount_cents, balance_after_cents, idempotency_key, created_at)
+		SELECT $1, 'bonus', 1, 1, 'empate-' || g, '2020-01-01 00:00:00+00'
+		FROM generate_series(1, 3) AS g`, walletID)
+	if err != nil {
+		t.Fatalf("insertar empates: %v", err)
+	}
+
+	// Recorremos todo el historial de 2 en 2.
+	var all []domain.WalletTransaction
+	var cursor *domain.TxCursor
+	pages := 0
+	for {
+		page, hasMore, err := repo.ListTransactions(ctx, userID, cursor, 2)
+		if err != nil {
+			t.Fatalf("página %d: %v", pages+1, err)
+		}
+		pages++
+		all = append(all, page...)
+		if !hasMore {
+			break
+		}
+		last := page[len(page)-1]
+		cursor = &domain.TxCursor{CreatedAt: last.CreatedAt, ID: last.ID}
+	}
+
+	if len(all) != 8 {
+		t.Fatalf("se leyeron %d movimientos, se esperaban 8", len(all))
+	}
+	if pages != 4 {
+		t.Errorf("páginas = %d, se esperaban 4", pages)
+	}
+
+	seen := make(map[string]bool)
+	for i, tx := range all {
+		if seen[tx.ID] {
+			t.Errorf("movimiento repetido: %s", tx.ID)
+		}
+		seen[tx.ID] = true
+		if i > 0 && tx.CreatedAt.After(all[i-1].CreatedAt) {
+			t.Errorf("posición %d: no está ordenado del más reciente al más antiguo", i)
+		}
+	}
+	if all[0].AmountCents != 500 {
+		t.Errorf("el primero debería ser el depósito más reciente (500), llegó %d", all[0].AmountCents)
+	}
+}
