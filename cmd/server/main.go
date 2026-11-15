@@ -101,7 +101,9 @@ func run(logger *slog.Logger) error {
 	mux.HandleFunc("POST /users", userHandler.Register)
 	mux.HandleFunc("POST /auth/login", authHandler.Login)
 	//---
-	mux.Handle("POST /wallets/{id}/deposits", requireAuth(http.HandlerFunc(walletHandler.Deposit)))        
+	mux.Handle("GET /wallets/me", requireAuth(http.HandlerFunc(walletHandler.Me)))
+	mux.Handle("POST /wallets/{id}/deposits", requireAuth(http.HandlerFunc(walletHandler.Deposit)))     
+	 
 
 	srv := &http.Server{
 		Handler:      mux,

@@ -47,6 +47,35 @@ INSERT INTO wallet_transactions (wallet_id, type, amount_cents, balance_after_ce
 VALUES ($1, $2, $3, $4, $5)
 RETURNING id, created_at`
 
+const findWalletByUserSQL = `
+SELECT id, user_id, type, currency, balance_cents, created_at, updated_at
+FROM wallets
+WHERE user_id = $1 AND type = 'real' AND currency = 'PEN'
+`
+
+// FinfByUser devuelve la billetera real en soles del usuario
+// Si no existe, devuelve domain.ErrWalletNotFound
+func (r *WalletPostgres) FindByUser(ctx context.Context, userID string) (domain.Wallet, error) {
+
+	var w domain.Wallet
+	err :=  r.pool.QueryRow(ctx, findWalletByUserSQL, userID).Scan(
+		&w.ID, &w.UserID, &w.Type, &w.Currency, &w.BalanceCents, &w.CreatedAt, &w.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows){
+		return domain.Wallet{}, domain.ErrWalletNotFound
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == pgInvalidTextRepresentation {
+		return domain.Wallet{}, domain.ErrWalletNotFound
+	}
+	if err != nil {
+		return domain.Wallet{}, fmt.Errorf("buscar billetera del usuario: %w", err)
+	}
+	return w, nil
+}
+
+
+
 func (r *WalletPostgres) Deposit(ctx context.Context, userID, walletID string, amountCents int64, key string) (tx domain.WalletTrasaction, created bool, err error) {
 	err = pgx.BeginFunc(ctx, r.pool, func(dbTx pgx.Tx) error {
 		// 1. Bloquear la billetera. Otro depósito a la misma billetera espera aquí.

@@ -18,17 +18,22 @@ type WalletDepositor interface {
 
 // WalletHanlder atiende las rutas HTTP de bileteras.
 type WalletHandler struct {
-	svc    WalletDepositor
+	svc    WalletService
 	logger *slog.Logger
 }
 
 // NewWalletHanldler crea el handler con sus dependencias.
-func NewWalletHandler(svc WalletDepositor, logger *slog.Logger) *WalletHandler {
+func NewWalletHandler(svc WalletService, logger *slog.Logger) *WalletHandler {
 	return &WalletHandler{svc: svc, logger: logger}
 }
 
 type depositRequest struct {
 	AmountCents int64 `json:"amount_cents"`
+}
+
+type WalletService interface {
+	Deposit(ctx context.Context, userID, walletID string, amountCents int64, key string) (domain.WalletTrasaction, bool, error)
+	MyWallet(ctx context.Context, userID string) (domain.Wallet, error)
 }
 
 // respuesta de la transacció
@@ -48,7 +53,7 @@ func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		// solo pasa alguien registróla la ruta sin el middleware
 		h.logger.Error("depósito sin usuario autenticado en el contexto")
-		writeError(w, h.logger, http.StatusInternalServerError, "internal_error","ocurrió un error inesperado, intenta más tarde")
+		writeError(w, h.logger, http.StatusInternalServerError, "internal_error", "ocurrió un error inesperado, intenta más tarde")
 		return
 	}
 
@@ -106,4 +111,40 @@ func (h *WalletHandler) writeDepositError(w http.ResponseWriter, err error) {
 		h.logger.Error("depósito falló", "error", err)
 		writeError(w, h.logger, http.StatusInternalServerError, "internal_error", "ocurrió un error interno, intenta más tarde")
 	}
+}
+
+type walletResponse struct {
+	ID           string    `json:"id"`
+	Type         string    `json:"type"`
+	Currency     string    `json:"currency"`
+	BalanceCents int64     `json:"balance_cents"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+// Me atiende GET /wallets/me: la billetera del usuario autenticado.
+func (h *WalletHandler) Me(w http.ResponseWriter, r *http.Request) {
+	userID, ok := UserIDFromContext(r.Context())
+	if !ok {
+		h.logger.Error("consulta de billetera sin usuario autenticado en el contexto")
+		writeError(w, h.logger, http.StatusInternalServerError, "internal_error", "ocurrio un error interno, intente mas tarde")
+		return
+	}
+	wallet, err := h.svc.MyWallet(r.Context(), userID)
+	if errors.Is(err, domain.ErrWalletNotFound) {
+		writeError(w, h.logger, http.StatusNotFound, "wallet_not_found", err.Error())
+		return
+	}
+	if err != nil {
+		h.logger.Error("consulta de billetera falló", "error", err)
+		writeError(w, h.logger, http.StatusInternalServerError, "internal_error", "ocurrio un error interno, intenta mas tarde")
+		return
+	}
+	
+	writeJSON(w, h.logger, http.StatusOK, walletResponse{
+		ID:           wallet.ID,
+		Type:         wallet.Type,
+		Currency:     wallet.Currency,
+		BalanceCents: wallet.BalanceCents,
+		UpdatedAt:    wallet.UpdatedAt,
+	})
 }

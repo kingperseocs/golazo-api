@@ -106,3 +106,28 @@ func TestWalletPostgres_DepositosConcurrentes(t *testing.T) {
 
 	assertLedgerMatches(t, pool, walletID, workers*amount)
 }
+
+func TestWalletPostgres_FindByUser(t *testing.T) {
+	pool := newTestPool(t)
+	anaID, anaWallet := createUserWithWallet(t, pool, "ana@golazo.pe", "12345678")
+	repo := repository.NewWalletPostgres(pool)
+	ctx := context.Background()
+
+	if _, _, err := repo.Deposit(ctx, anaID, anaWallet, 5_000, "yape-001"); err != nil {
+		t.Fatalf("depósito: %v", err)
+	}
+
+	w, err := repo.FindByUser(ctx, anaID)
+	if err != nil {
+		t.Fatalf("error inesperado: %v", err)
+	}
+	if w.ID != anaWallet || w.BalanceCents != 5_000 || w.Currency != "PEN" {
+		t.Errorf("billetera = %+v", w)
+	}
+
+	// Un usuario que no existe no tiene billetera.
+	_, err = repo.FindByUser(ctx, "00000000-0000-0000-0000-000000000000")
+	if !errors.Is(err, domain.ErrWalletNotFound) {
+		t.Errorf("error = %v, se esperaba ErrWalletNotFound", err)
+	}
+}
