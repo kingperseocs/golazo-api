@@ -58,10 +58,10 @@ WHERE user_id = $1 AND type = 'real' AND currency = 'PEN'
 func (r *WalletPostgres) FindByUser(ctx context.Context, userID string) (domain.Wallet, error) {
 
 	var w domain.Wallet
-	err :=  r.pool.QueryRow(ctx, findWalletByUserSQL, userID).Scan(
+	err := r.pool.QueryRow(ctx, findWalletByUserSQL, userID).Scan(
 		&w.ID, &w.UserID, &w.Type, &w.Currency, &w.BalanceCents, &w.CreatedAt, &w.UpdatedAt,
 	)
-	if errors.Is(err, pgx.ErrNoRows){
+	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Wallet{}, domain.ErrWalletNotFound
 	}
 	var pgErr *pgconn.PgError
@@ -74,24 +74,22 @@ func (r *WalletPostgres) FindByUser(ctx context.Context, userID string) (domain.
 	return w, nil
 }
 
-
 // Deposit acredita amountCents en la billetera del usuario.
-func (r *WalletPostgres) Deposit(ctx context.Context, userID, WalletID string, amountCents int64, key string) (domain.WalletTrasaction, bool, error) {
+func (r *WalletPostgres) Deposit(ctx context.Context, userID, WalletID string, amountCents int64, key string) (domain.WalletTransaction, bool, error) {
 	return r.applyMovement(ctx, userID, WalletID, key, domain.TxDeposit, amountCents,
-		func(w *domain.Wallet) (domain.WalletTrasaction, error) {
+		func(w *domain.Wallet) (domain.WalletTransaction, error) {
 			return w.Deposit(amountCents, key)
 		})
 }
 
-//Withdraw descuenta amountCents de la billetera del usuario.
+// Withdraw descuenta amountCents de la billetera del usuario.
 // En el ledger, el retiro queda con monto negativo
-func (r *WalletPostgres) Withdraw(ctx context.Context, userID, walletID string, amountCents int64, key string) (domain.WalletTrasaction, bool, error){
+func (r *WalletPostgres) Withdraw(ctx context.Context, userID, walletID string, amountCents int64, key string) (domain.WalletTransaction, bool, error) {
 	return r.applyMovement(ctx, userID, walletID, key, domain.TxWithdrawal, -amountCents,
-		func(w *domain.Wallet)(domain.WalletTrasaction, error) {
+		func(w *domain.Wallet) (domain.WalletTransaction, error) {
 			return w.Withdraw(amountCents, key)
 		})
 }
-
 
 // applyMovement ejecuta un movimiento de dinero dentro de una transacción:
 // bloquea la billetera, revisa la idempotencia, aplica la regla del dominio
@@ -106,10 +104,10 @@ func (r *WalletPostgres) applyMovement(
 	userID, walletID, key string,
 	txType domain.TransactionType,
 	ledgerAmount int64,
-	apply func(w *domain.Wallet) (domain.WalletTrasaction, error),
-) (tx domain.WalletTrasaction, created bool, err error) {
+	apply func(w *domain.Wallet) (domain.WalletTransaction, error),
+) (tx domain.WalletTransaction, created bool, err error) {
 	err = pgx.BeginFunc(ctx, r.pool, func(dbTx pgx.Tx) error {
-		
+
 		// 1.Bloquear la billetera, solo si pertenece al usuario.
 		var w domain.Wallet
 		err := dbTx.QueryRow(ctx, lockWalletSQL, walletID, userID).Scan(
@@ -121,7 +119,7 @@ func (r *WalletPostgres) applyMovement(
 
 		// 2. ¿Ya procesamos esta clave? (se revisa DESPUÉS del bloqueo)
 		existing, found, err := findTransactionByKey(ctx, dbTx, walletID, key)
-		if err != nil{
+		if err != nil {
 			return err
 		}
 		if found {
@@ -139,14 +137,14 @@ func (r *WalletPostgres) applyMovement(
 		}
 
 		// 4. Guardar el nuevo saldo
-		if _, err := dbTx.Exec(ctx, updateBalanceSQL, w.ID, w.BalanceCents); err != nil{
+		if _, err := dbTx.Exec(ctx, updateBalanceSQL, w.ID, w.BalanceCents); err != nil {
 			return fmt.Errorf("actualizar saldo: %w", err)
 		}
 
 		// 5. Registrar el movimiento en el ledger
 		err = dbTx.QueryRow(ctx, insertTransactionSQL,
 			newTx.WalletID, string(newTx.Type), newTx.AmountCents, newTx.BalanceAfterCents, newTx.IdempotencyKey,
-		).Scan(&newTx.ID, &newTx.CreateAt)
+		).Scan(&newTx.ID, &newTx.CreatedAt)
 		if err != nil {
 			return fmt.Errorf("insertar movimiento: %w", err)
 		}
@@ -156,24 +154,23 @@ func (r *WalletPostgres) applyMovement(
 		return nil
 	})
 	if err != nil {
-		return domain.WalletTrasaction{}, false, err
+		return domain.WalletTransaction{}, false, err
 	}
 	return tx, created, nil
 }
 
-
 // findTransactionByKey busca un movimiento por su calve de idempotencia.
-func findTransactionByKey(ctx context.Context, dbTx pgx.Tx, walletID, key string) (domain.WalletTrasaction, bool, error) {
-	var t domain.WalletTrasaction
+func findTransactionByKey(ctx context.Context, dbTx pgx.Tx, walletID, key string) (domain.WalletTransaction, bool, error) {
+	var t domain.WalletTransaction
 	var txType string
-	err :=dbTx.QueryRow(ctx, findTransactionByKeySQL,  walletID, key).Scan(
-		&t.ID, &t.WalletID, &txType, &t.AmountCents, &t.BalanceAfterCents, &t.IdempotencyKey, &t.CreateAt,
+	err := dbTx.QueryRow(ctx, findTransactionByKeySQL, walletID, key).Scan(
+		&t.ID, &t.WalletID, &txType, &t.AmountCents, &t.BalanceAfterCents, &t.IdempotencyKey, &t.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.WalletTrasaction{}, false, nil
+		return domain.WalletTransaction{}, false, nil
 	}
 	if err != nil {
-		return domain.WalletTrasaction{}, false, fmt.Errorf("buscar movimiento por claves: %w", err)
+		return domain.WalletTransaction{}, false, fmt.Errorf("buscar movimiento por claves: %w", err)
 	}
 	t.Type = domain.TransactionType(txType)
 	return t, true, nil

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"strings"
 	"time"
-
 )
 
 // MaxDepositCents es el depósito máximo permitido: S/ 5 000.00
@@ -47,33 +46,33 @@ type Wallet struct {
 }
 
 // WalletTransaction es un movimiento del ledger. Nunca se modifica
-type WalletTrasaction struct {
+type WalletTransaction struct {
 	ID                string
 	WalletID          string
 	Type              TransactionType
 	AmountCents       int64
 	BalanceAfterCents int64
 	IdempotencyKey    string
-	CreateAt          time.Time
+	CreatedAt         time.Time
 }
 
 // Deposit suma amountCents al saldo y devuelve el movimiento que lo registra.
 // si algo no es válido, el saldo no cambia.
-func (w *Wallet) Deposit(amountCents int64, idempotencyKey string) (WalletTrasaction, error) {
+func (w *Wallet) Deposit(amountCents int64, idempotencyKey string) (WalletTransaction, error) {
 	if amountCents <= 0 {
-		return WalletTrasaction{}, ErrInvalidAmount
+		return WalletTransaction{}, ErrInvalidAmount
 	}
 	if amountCents > MaxDepositCents {
-		return WalletTrasaction{}, ErrDepositLimit
+		return WalletTransaction{}, ErrDepositLimit
 	}
 	key, err := normalizeIdempotencyKey(idempotencyKey)
 	if err != nil {
-		return WalletTrasaction{}, err
+		return WalletTransaction{}, err
 	}
 
 	w.BalanceCents += amountCents
 
-	return WalletTrasaction{
+	return WalletTransaction{
 		WalletID:          w.ID,
 		Type:              TxDeposit,
 		AmountCents:       amountCents,
@@ -86,30 +85,29 @@ func (w *Wallet) Deposit(amountCents int64, idempotencyKey string) (WalletTrasac
 // Withdraw resta amountCents del saldo y devuelve el movimiento que lo registra.
 // En el ledger, el monto de un retiro se guarda en negativo.
 // Si algo no es válido o no alcanza el saldo, el sado no cambia.
-func (w *Wallet) Withdraw(amountCents int64, idempotencyKey string) (WalletTrasaction, error){
+func (w *Wallet) Withdraw(amountCents int64, idempotencyKey string) (WalletTransaction, error) {
 
 	// agregamos la regla
 	if amountCents <= 0 {
-		return WalletTrasaction{}, ErrInvalidAmount
+		return WalletTransaction{}, ErrInvalidAmount
 	}
 	key, err := normalizeIdempotencyKey(idempotencyKey)
 	if err != nil {
-		return WalletTrasaction{}, err
+		return WalletTransaction{}, err
 	}
 	if amountCents > w.BalanceCents {
-		return WalletTrasaction{}, ErrInsufficientFunds
+		return WalletTransaction{}, ErrInsufficientFunds
 	}
 	w.BalanceCents -= amountCents
 
-	return WalletTrasaction{
-		WalletID: w.ID,
-		Type: TxWithdrawal,
-		AmountCents: -amountCents,
+	return WalletTransaction{
+		WalletID:          w.ID,
+		Type:              TxWithdrawal,
+		AmountCents:       -amountCents,
 		BalanceAfterCents: w.BalanceCents,
-		IdempotencyKey: key,
+		IdempotencyKey:    key,
 	}, nil
 }
-
 
 // normalizeIdempotencyKey limpiar la clave y revisa que sea válida
 func normalizeIdempotencyKey(raw string) (string, error) {

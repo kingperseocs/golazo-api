@@ -11,32 +11,31 @@ import (
 	"github.com/kingperseocs/golazo-api/internal/domain"
 )
 
-// WalletDepositor es lo que el hanlder necesita del servicio del billeteras.
-type WalletDepositor interface {
-	Deposit(ctx context.Context, userID, walletID string, amountCents int64, ky string) (domain.WalletTrasaction, bool, error)
+// WalletService es lo que el handler necesita del servicio de billeteras.
+type WalletService interface {
+	Deposit(ctx context.Context, userID, walletID string, amountCents int64, key string) (domain.WalletTransaction, bool, error)
+	Withdraw(ctx context.Context, userID, walletID string, amountCents int64, key string) (domain.WalletTransaction, bool, error)
+	MyWallet(ctx context.Context, userID string) (domain.Wallet, error)
 }
 
-// WalletHanlder atiende las rutas HTTP de bileteras.
+// movementFunc es la forma común de Deposit y Withdraw.
+type movementFunc func(ctx context.Context, userID, walletID string, amountCents int64, key string) (domain.WalletTransaction, bool, error)
+
+// WalletHandler atiende las rutas HTTP de billeteras.
 type WalletHandler struct {
 	svc    WalletService
 	logger *slog.Logger
 }
 
-// NewWalletHanldler crea el handler con sus dependencias.
+// NewWalletHandler crea el handler con sus dependencias.
 func NewWalletHandler(svc WalletService, logger *slog.Logger) *WalletHandler {
 	return &WalletHandler{svc: svc, logger: logger}
 }
 
-type depositRequest struct {
+type movementRequest struct {
 	AmountCents int64 `json:"amount_cents"`
 }
 
-type WalletService interface {
-	Deposit(ctx context.Context, userID, walletID string, amountCents int64, key string) (domain.WalletTrasaction, bool, error)
-	MyWallet(ctx context.Context, userID string) (domain.Wallet, error)
-}
-
-// respuesta de la transacció
 type transactionResponse struct {
 	ID                string    `json:"id"`
 	WalletID          string    `json:"wallet_id"`
@@ -46,14 +45,24 @@ type transactionResponse struct {
 	CreatedAt         time.Time `json:"created_at"`
 }
 
-// Deposit atiende Post /wallets/{id}/deposits
+// Deposit atiende POST /wallets/{id}/deposits.
 func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
+	h.handleMovement(w, r, h.svc.Deposit)
+}
 
+// Withdraw atiende POST /wallets/{id}/withdrawals.
+func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
+	h.handleMovement(w, r, h.svc.Withdraw)
+}
+
+// handleMovement hace todo lo común a depósitos y retiros: leer el usuario,
+// el id de la billetera, la clave y el JSON; llamar a la operación (move)
+// y escribir la respuesta.
+func (h *WalletHandler) handleMovement(w http.ResponseWriter, r *http.Request, move movementFunc) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
-		// solo pasa alguien registróla la ruta sin el middleware
-		h.logger.Error("depósito sin usuario autenticado en el contexto")
-		writeError(w, h.logger, http.StatusInternalServerError, "internal_error", "ocurrió un error inesperado, intenta más tarde")
+		h.logger.Error("movimiento sin usuario autenticado en el contexto")
+		writeError(w, h.logger, http.StatusInternalServerError, "internal_error", "ocurrió un error interno, intenta más tarde")
 		return
 	}
 
@@ -62,25 +71,24 @@ func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
-	var req depositRequest
+	var req movementRequest
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
-
 	if err := decoder.Decode(&req); err != nil {
-		h.logger.Warn("JSON inválido en depósito", "error", err)
+		h.logger.Warn("JSON inválido en movimiento", "error", err)
 		writeError(w, h.logger, http.StatusBadRequest, "invalid_json", "el cuerpo debe ser un JSON válido")
 		return
 	}
 
-	tx, created, err := h.svc.Deposit(r.Context(), userID, walletID, req.AmountCents, key)
+	tx, created, err := move(r.Context(), userID, walletID, req.AmountCents, key)
 	if err != nil {
-		h.writeDepositError(w, err)
+		h.writeMovementError(w, err)
 		return
 	}
 
 	status := http.StatusCreated
 	if !created {
-		status = http.StatusOK // reintento: mismo resultado, sin acreditar de nuevo
+		status = http.StatusOK // reintento: mismo resultado, sin aplicar de nuevo
 	}
 
 	writeJSON(w, h.logger, status, transactionResponse{
@@ -89,13 +97,12 @@ func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 		Type:              string(tx.Type),
 		AmountCents:       tx.AmountCents,
 		BalanceAfterCents: tx.BalanceAfterCents,
-		CreatedAt:         tx.CreateAt,
+		CreatedAt:         tx.CreatedAt,
 	})
-
 }
 
-// writeDepositError traduce los erores del depósito a respuestas HTTP.
-func (h *WalletHandler) writeDepositError(w http.ResponseWriter, err error) {
+// writeMovementError traduce los errores de depósitos y retiros a respuestas HTTP.
+func (h *WalletHandler) writeMovementError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, domain.ErrWalletNotFound):
 		writeError(w, h.logger, http.StatusNotFound, "wallet_not_found", err.Error())
@@ -103,12 +110,14 @@ func (h *WalletHandler) writeDepositError(w http.ResponseWriter, err error) {
 		writeError(w, h.logger, http.StatusConflict, "idempotency_conflict", err.Error())
 	case errors.Is(err, domain.ErrInvalidAmount):
 		writeError(w, h.logger, http.StatusUnprocessableEntity, "invalid_amount", err.Error())
+	case errors.Is(err, domain.ErrInsufficientFunds):
+		writeError(w, h.logger, http.StatusUnprocessableEntity, "insufficient_funds", err.Error())
 	case errors.Is(err, domain.ErrDepositLimit):
 		writeError(w, h.logger, http.StatusUnprocessableEntity, "deposit_limit", err.Error())
 	case errors.Is(err, domain.ErrInvalidIdempotency):
 		writeError(w, h.logger, http.StatusUnprocessableEntity, "invalid_idempotency_key", err.Error())
 	default:
-		h.logger.Error("depósito falló", "error", err)
+		h.logger.Error("movimiento falló", "error", err)
 		writeError(w, h.logger, http.StatusInternalServerError, "internal_error", "ocurrió un error interno, intenta más tarde")
 	}
 }
@@ -126,9 +135,10 @@ func (h *WalletHandler) Me(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())
 	if !ok {
 		h.logger.Error("consulta de billetera sin usuario autenticado en el contexto")
-		writeError(w, h.logger, http.StatusInternalServerError, "internal_error", "ocurrio un error interno, intente mas tarde")
+		writeError(w, h.logger, http.StatusInternalServerError, "internal_error", "ocurrió un error interno, intenta más tarde")
 		return
 	}
+
 	wallet, err := h.svc.MyWallet(r.Context(), userID)
 	if errors.Is(err, domain.ErrWalletNotFound) {
 		writeError(w, h.logger, http.StatusNotFound, "wallet_not_found", err.Error())
@@ -136,10 +146,10 @@ func (h *WalletHandler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		h.logger.Error("consulta de billetera falló", "error", err)
-		writeError(w, h.logger, http.StatusInternalServerError, "internal_error", "ocurrio un error interno, intenta mas tarde")
+		writeError(w, h.logger, http.StatusInternalServerError, "internal_error", "ocurrió un error interno, intenta más tarde")
 		return
 	}
-	
+
 	writeJSON(w, h.logger, http.StatusOK, walletResponse{
 		ID:           wallet.ID,
 		Type:         wallet.Type,
