@@ -75,13 +75,45 @@ func (r *WalletPostgres) FindByUser(ctx context.Context, userID string) (domain.
 }
 
 
+// Deposit acredita amountCents en la billetera del usuario.
+func (r *WalletPostgres) Deposit(ctx context.Context, userID, WalletID string, amountCents int64, key string) (domain.WalletTrasaction, bool, error) {
+	return r.applyMovement(ctx, userID, WalletID, key, domain.TxDeposit, amountCents,
+		func(w *domain.Wallet) (domain.WalletTrasaction, error) {
+			return w.Deposit(amountCents, key)
+		})
+}
 
-func (r *WalletPostgres) Deposit(ctx context.Context, userID, walletID string, amountCents int64, key string) (tx domain.WalletTrasaction, created bool, err error) {
+//Withdraw descuenta amountCents de la billetera del usuario.
+// En el ledger, el retiro queda con monto negativo
+func (r *WalletPostgres) Withdraw(ctx context.Context, userID, walletID string, amountCents int64, key string) (domain.WalletTrasaction, bool, error){
+	return r.applyMovement(ctx, userID, walletID, key, domain.TxWithdrawal, -amountCents,
+		func(w *domain.Wallet)(domain.WalletTrasaction, error) {
+			return w.Withdraw(amountCents, key)
+		})
+}
+
+
+// applyMovement ejecuta un movimiento de dinero dentro de una transacción:
+// bloquea la billetera, revisa la idempotencia, aplica la regla del dominio
+// (apply), guarda el nuevo saldo y registra el movimiento en el ledger.
+//
+// ledgerAmount es el monto tal como queda en el ledger (negativo en retiros);
+// se usa para reconocer un reintento con la misma clave.
+// Si la clave ya se usó con los mismos datos, devuelve el movimiento original
+// con created = false y no toca el saldo.
+func (r *WalletPostgres) applyMovement(
+	ctx context.Context,
+	userID, walletID, key string,
+	txType domain.TransactionType,
+	ledgerAmount int64,
+	apply func(w *domain.Wallet) (domain.WalletTrasaction, error),
+) (tx domain.WalletTrasaction, created bool, err error) {
 	err = pgx.BeginFunc(ctx, r.pool, func(dbTx pgx.Tx) error {
-		// 1. Bloquear la billetera. Otro depósito a la misma billetera espera aquí.
+		
+		// 1.Bloquear la billetera, solo si pertenece al usuario.
 		var w domain.Wallet
 		err := dbTx.QueryRow(ctx, lockWalletSQL, walletID, userID).Scan(
-			&w.ID, &w.UserID, &w.Type, &w.Currency, &w.BalanceCents, &w.CreatedAt, &w.UpdatedAt, 
+			&w.ID, &w.UserID, &w.Type, &w.Currency, &w.BalanceCents, &w.CreatedAt, &w.UpdatedAt,
 		)
 		if err != nil {
 			return mapWalletError(err)
@@ -89,29 +121,29 @@ func (r *WalletPostgres) Deposit(ctx context.Context, userID, walletID string, a
 
 		// 2. ¿Ya procesamos esta clave? (se revisa DESPUÉS del bloqueo)
 		existing, found, err := findTransactionByKey(ctx, dbTx, walletID, key)
-		if err != nil {
+		if err != nil{
 			return err
 		}
 		if found {
-			if existing.Type != domain.TxDeposit || existing.AmountCents != amountCents {
+			if existing.Type != txType || existing.AmountCents != ledgerAmount {
 				return domain.ErrIdempotencyConflict
 			}
 			tx = existing
 			return nil
 		}
 
-		// 3. Reglas del negocio en el dominio
-		newTx, err := w.Deposit(amountCents, key)
+		//3. La regla del negocio la decide el dominio (depositar, retirar)
+		newTx, err := apply(&w)
 		if err != nil {
 			return err
 		}
 
-		// 4. Guardar el nuevo saldo.
-		if _, err := dbTx.Exec(ctx, updateBalanceSQL, w.ID, w.BalanceCents); err != nil {
+		// 4. Guardar el nuevo saldo
+		if _, err := dbTx.Exec(ctx, updateBalanceSQL, w.ID, w.BalanceCents); err != nil{
 			return fmt.Errorf("actualizar saldo: %w", err)
 		}
 
-		// 5. Registrar el movimiento en el ledger.
+		// 5. Registrar el movimiento en el ledger
 		err = dbTx.QueryRow(ctx, insertTransactionSQL,
 			newTx.WalletID, string(newTx.Type), newTx.AmountCents, newTx.BalanceAfterCents, newTx.IdempotencyKey,
 		).Scan(&newTx.ID, &newTx.CreateAt)
@@ -128,6 +160,7 @@ func (r *WalletPostgres) Deposit(ctx context.Context, userID, walletID string, a
 	}
 	return tx, created, nil
 }
+
 
 // findTransactionByKey busca un movimiento por su calve de idempotencia.
 func findTransactionByKey(ctx context.Context, dbTx pgx.Tx, walletID, key string) (domain.WalletTrasaction, bool, error) {

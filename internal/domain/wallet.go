@@ -32,7 +32,7 @@ var (
 	ErrInvalidIdempotency  = errors.New("la clave de idempotencia es obligatoria (máximo 100 caracteres)")
 	ErrWalletNotFound      = errors.New("billetera no enontrada")
 	ErrIdempotencyConflict = errors.New("la clave de idempotencia ya se usó con otros datos")
-	ErrInsufficientFunds   = errors.New("saldo insufienciente")
+	ErrInsufficientFunds   = errors.New("saldo insuficiente")
 )
 
 // Wallet es la billetera de un usuario. Los montos van en céntimos.
