@@ -11,11 +11,11 @@ var ErrMismatch = errors.New("la contraseña no coincide")
 
 // BcryptHasher hashea contraseñas con bcrypt.
 type BcryptHasher struct {
-	cost int 
+	cost int
 }
 
 // NewBcryptHasher crea el hasher . cost controla qué tan lento es el hash.
-func NewBcryptHasher(cost int) * BcryptHasher {
+func NewBcryptHasher(cost int) *BcryptHasher {
 	return &BcryptHasher{cost: cost}
 }
 
@@ -29,7 +29,7 @@ func (h *BcryptHasher) Hash(plain string) (string, error) {
 }
 
 func (h *BcryptHasher) Compare(hash, plain string) error {
-	err := bcrypt.CompareHashAndPassword([] byte(hash), []byte(plain))
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(plain))
 	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 		return ErrMismatch
 	}

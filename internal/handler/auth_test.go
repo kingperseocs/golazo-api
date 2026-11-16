@@ -44,7 +44,7 @@ func TestAuthHandler_Login(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T){
+		t.Run(tt.name, func(t *testing.T) {
 			h := NewAuthHanlder(tt.auth, discard)
 			req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(tt.body))
 			rec := httptest.NewRecorder()
@@ -61,7 +61,7 @@ func TestAuthHandler_Login(t *testing.T) {
 			if err := decoder.Decode(&body); err != nil {
 				t.Fatalf("el cuerpo no es un JSON: %v", err)
 			}
-			if decoder.More(){ 
+			if decoder.More() {
 				t.Fatal("la respuesta tiene más de un JSON: ¿falta un return después de writeError?")
 			}
 
@@ -69,7 +69,7 @@ func TestAuthHandler_Login(t *testing.T) {
 				if body["access_token"] != "token-ok" {
 					t.Errorf("access_token = %v", body["access_token"])
 				}
-				return 
+				return
 			}
 			errObj, ok := body["error"].(map[string]any)
 			if !ok {
@@ -78,7 +78,7 @@ func TestAuthHandler_Login(t *testing.T) {
 			if errObj["code"] != tt.wantCode {
 				t.Errorf("code = %v, se esperaba %q", errObj["code"], tt.wantCode)
 			}
- 
+
 		})
 	}
 

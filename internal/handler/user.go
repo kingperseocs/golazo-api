@@ -13,49 +13,49 @@ import (
 )
 
 // UserRegisterer es lo que el handler necesita del servicio.
-type UserRegisterer interface{
+type UserRegisterer interface {
 	Register(ctx context.Context, in service.RegisterInput) (domain.User, error)
 }
 
 // UserHanlder atiende las rutas HTTP de usuarios
 type UserHandler struct {
-	svc UserRegisterer
+	svc    UserRegisterer
 	logger *slog.Logger
 }
 
 // NewUserHanlder crea el hanlder con sus dependencias.
-func NewUserHandler(svc UserRegisterer, logger *slog.Logger) *UserHandler{
+func NewUserHandler(svc UserRegisterer, logger *slog.Logger) *UserHandler {
 	return &UserHandler{svc: svc, logger: logger}
 }
 
 // registreRequest es el JSON que llega en POST /users.
 type registerRequest struct {
-	DocumentType 	string `json:"document_type"`
-	DocumentNumber	string `json:"document_number"`
-	FirstName 		string `json:"first_name"`
-	LastName		string `json:"last_name"`
-	BirthDate		string `json:"birth_date"`
-	Email			string `json:"email"`
-	Phone			string `json:"phone"`
-	Password 		string `json:"password"`
+	DocumentType   string `json:"document_type"`
+	DocumentNumber string `json:"document_number"`
+	FirstName      string `json:"first_name"`
+	LastName       string `json:"last_name"`
+	BirthDate      string `json:"birth_date"`
+	Email          string `json:"email"`
+	Phone          string `json:"phone"`
+	Password       string `json:"password"`
 }
 
 // userResponse es lo que la API devuelve de usuario. Sin password_hash.
 type userResponse struct {
-	ID 				string 		`json:"id"`
-	DocumentType	string 		`json:"document_type"`
-	FirstName		string 		`json:"first_name"`
-	LastName		string 		`json:"last_name"`
-	Email 			string 		`json:"email"`
-	Status			string 		`json:"status"`
-	CreatedAt 		time.Time	`json:"created_at"`
+	ID           string    `json:"id"`
+	DocumentType string    `json:"document_type"`
+	FirstName    string    `json:"first_name"`
+	LastName     string    `json:"last_name"`
+	Email        string    `json:"email"`
+	Status       string    `json:"status"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // Register atiende POST /users.
 func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
-	var req registerRequest 
+	var req registerRequest
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&req); err != nil {
@@ -71,14 +71,14 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := h.svc.Register(r.Context(), service.RegisterInput{
-		NewUserParams:  domain.NewUserParams{
-			DocumentType: domain.DocumentType(req.DocumentType),
+		NewUserParams: domain.NewUserParams{
+			DocumentType:   domain.DocumentType(req.DocumentType),
 			DocumentNumber: req.DocumentNumber,
-			FirstName: req.FirstName,
-			LastName: req.LastName,
-			BirthDate: birthDate,
-			Email: req.Email,
-			Phone: req.Phone,
+			FirstName:      req.FirstName,
+			LastName:       req.LastName,
+			BirthDate:      birthDate,
+			Email:          req.Email,
+			Phone:          req.Phone,
 		},
 		Password: req.Password,
 	})
@@ -87,13 +87,13 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, h.logger, http.StatusCreated, userResponse {
-		ID:  user.ID,
+	writeJSON(w, h.logger, http.StatusCreated, userResponse{
+		ID:           user.ID,
 		DocumentType: string(user.DocumentType),
-		LastName: user.LastName,
-		Email: user.Email,
-		Status: string(user.Status),
-		CreatedAt: user.CreatedAt,
+		LastName:     user.LastName,
+		Email:        user.Email,
+		Status:       string(user.Status),
+		CreatedAt:    user.CreatedAt,
 	})
 
 }

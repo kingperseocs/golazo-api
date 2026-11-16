@@ -173,7 +173,6 @@ func (h *WalletHandler) Me(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-
 // MyTransactions atiende GET /wallets/me/transactions?limit=20&cursor=...
 func (h *WalletHandler) MyTransactions(w http.ResponseWriter, r *http.Request) {
 	userID, ok := UserIDFromContext(r.Context())

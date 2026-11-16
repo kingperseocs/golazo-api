@@ -18,7 +18,6 @@ type cursorPayload struct {
 	ID        string    `json:"id"`
 }
 
-
 // encodeCursor convierte la posición en un ctexto opaco para el cliente
 func encodeCursor(c domain.TxCursor) (string, error) {
 	raw, err := json.Marshal(cursorPayload{CreatedAt: c.CreatedAt, ID: c.ID})
@@ -30,7 +29,7 @@ func encodeCursor(c domain.TxCursor) (string, error) {
 
 // decodeCursor hace lo contrario del texto opaco a la posicion
 func decodeCursor(s string) (domain.TxCursor, error) {
-	raw , err := base64.RawURLEncoding.DecodeString(s)
+	raw, err := base64.RawURLEncoding.DecodeString(s)
 	if err != nil {
 		return domain.TxCursor{}, errInvalidCursor
 	}

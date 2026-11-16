@@ -14,7 +14,7 @@ type TokenParser interface {
 
 //userIDKey es la clave para guardar el id del usuario en el contexto
 // Es un tipo propio privado para que ningún otro paquete pueda pisarla
-type userIDKey struct {}
+type userIDKey struct{}
 
 // UserIDFromContext devuelve el id del usuario autenticado, si lo hay
 func UserIDFromContext(ctx context.Context) (string, bool) {

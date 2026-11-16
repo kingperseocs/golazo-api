@@ -46,14 +46,14 @@ type AuthService struct {
 }
 
 // NewAuthService crea el servicio. dummyHash es un hash bcrypt cualquiera, usado para que un email inexistente tarde lo mismo que uno real
-// servicio de autenticacion 
-func NewAuthService(users UserFinder, passwords PasswordComparer, tokens TokenIssuer, dummyHash string) *AuthService{
+// servicio de autenticacion
+func NewAuthService(users UserFinder, passwords PasswordComparer, tokens TokenIssuer, dummyHash string) *AuthService {
 	return &AuthService{users: users, passwords: passwords, tokens: tokens, dummyHash: dummyHash}
 }
 
 //Login valida las credenciales y emite un token de acceso
 func (s *AuthService) Login(ctx context.Context, email, password string) (LoginResult, error) {
-	
+
 	email = strings.ToLower(strings.TrimSpace(email))
 
 	user, err := s.users.FindByEmail(ctx, email)
@@ -82,4 +82,3 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (LoginR
 	}
 	return LoginResult{AccessToken: accessToken, ExpiresAt: expiresAt}, nil
 }
-

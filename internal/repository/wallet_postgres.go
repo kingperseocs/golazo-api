@@ -76,7 +76,7 @@ LIMIT $2
 
 // todo aqui se consulta a la bd
 // función que lista las transacciones devuelve hasta limit movimientos del usuario, del asmas reciente al mas antiguo
-func (r *WalletPostgres) ListTransactions(ctx context.Context, userID string, after *domain.TxCursor, limit int) (items[]domain.WalletTransaction, hasMore bool, err error) {
+func (r *WalletPostgres) ListTransactions(ctx context.Context, userID string, after *domain.TxCursor, limit int) (items []domain.WalletTransaction, hasMore bool, err error) {
 	// Pedimos uno más de los necesarios: si llega, sabemos que hay otra página
 	fetch := limit + 1
 
@@ -100,11 +100,11 @@ func (r *WalletPostgres) ListTransactions(ctx context.Context, userID string, af
 		}
 		t.Type = domain.TransactionType(txType)
 		items = append(items, t)
-	}	
-	if err := rows.Err(); err != nil {
-		return nil,  false, fmt.Errorf("recorrer movimientos: %w", err)
 	}
-	if len(items) >limit {
+	if err := rows.Err(); err != nil {
+		return nil, false, fmt.Errorf("recorrer movimientos: %w", err)
+	}
+	if len(items) > limit {
 		return items[:limit], true, nil
 	}
 	return items, false, nil

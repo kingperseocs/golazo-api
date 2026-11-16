@@ -26,17 +26,17 @@ func NewJWTManager(secret string, ttl time.Duration) (*JWTManager, error) {
 		return nil, errors.New("JWT_SECRET debe tener al menos 32 caracteres")
 	}
 	return &JWTManager{secret: []byte(secret), ttl: ttl, now: time.Now}, nil
-}	
+}
 
 // Issue firma un token para el usuario y devuelve también cuando vence.
 func (m *JWTManager) Issue(userID string) (string, time.Time, error) {
 	now := m.now()
 	expiresAt := now.Add(m.ttl)
 
-	claims := jwt.RegisteredClaims {
-		Subject: userID,
-		Issuer: issuer,
-		IssuedAt: jwt.NewNumericDate(now),
+	claims := jwt.RegisteredClaims{
+		Subject:   userID,
+		Issuer:    issuer,
+		IssuedAt:  jwt.NewNumericDate(now),
 		ExpiresAt: jwt.NewNumericDate(expiresAt),
 	}
 

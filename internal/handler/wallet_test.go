@@ -17,7 +17,7 @@ import (
 // fakeWalletService registra qué operación se llamó y devuelve el error indicado.
 type fakeWalletService struct {
 	called string
-	err error
+	err    error
 
 	// Para el historial.
 	items    []domain.WalletTransaction
@@ -25,7 +25,6 @@ type fakeWalletService struct {
 	gotLimit int
 	gotAfter *domain.TxCursor
 }
-
 
 func (f *fakeWalletService) Deposit(ctx context.Context, userID, walletID string, amountCents int64, key string) (domain.WalletTransaction, bool, error) {
 	f.called = "deposit"

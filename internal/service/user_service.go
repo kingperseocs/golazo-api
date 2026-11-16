@@ -32,16 +32,16 @@ type RegisterInput struct {
 // User service coordina el registro de usuarios.
 type UserService struct {
 	userRepo UserRepository
-	hasher PasswordHasher
-	today func() time.Time
+	hasher   PasswordHasher
+	today    func() time.Time
 }
 
 // NewUserService crea el servicio con sus dependencias.
 func NewUserService(repo UserRepository, hasher PasswordHasher) *UserService {
 	return &UserService{
 		userRepo: repo,
-		hasher: hasher,
-		today: todayInPeru,
+		hasher:   hasher,
+		today:    todayInPeru,
 	}
 }
 
@@ -68,7 +68,7 @@ func (s *UserService) Register(ctx context.Context, in RegisterInput) (domain.Us
 }
 
 // devuelve la fecha de perú
-func todayInPeru() time.Time{
+func todayInPeru() time.Time {
 	now := time.Now().In(peruTime)
-	return time.Date(now.Year(), now.Month(), now.Day(), 0,0,0,0, time.UTC)
+	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 }

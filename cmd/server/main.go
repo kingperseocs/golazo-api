@@ -84,7 +84,6 @@ func run(logger *slog.Logger) error {
 
 	requireAuth := handler.RequireAuth(tokens, logger)
 
-
 	userRepo := repository.NewUserPostgres(pool)
 	userService := service.NewUserService(userRepo, hasher)
 	userHandler := handler.NewUserHandler(userService, logger)
@@ -102,10 +101,9 @@ func run(logger *slog.Logger) error {
 	mux.HandleFunc("POST /auth/login", authHandler.Login)
 	//---
 	mux.Handle("GET /wallets/me", requireAuth(http.HandlerFunc(walletHandler.Me)))
-	mux.Handle("POST /wallets/{id}/deposits", requireAuth(http.HandlerFunc(walletHandler.Deposit)))     
+	mux.Handle("POST /wallets/{id}/deposits", requireAuth(http.HandlerFunc(walletHandler.Deposit)))
 	mux.Handle("POST /wallets/{id}/withdrawals", requireAuth(http.HandlerFunc(walletHandler.Withdraw)))
 	mux.Handle("GET /wallets/me/transactions", requireAuth(http.HandlerFunc(walletHandler.MyTransactions)))
-	 
 
 	srv := &http.Server{
 		Handler:      mux,

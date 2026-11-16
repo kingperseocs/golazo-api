@@ -50,7 +50,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err := decoder.Decode(&req); err != nil {
 		h.logger.Warn("JSON inválido en login", "error", err)
 		writeError(w, h.logger, http.StatusBadRequest, "invalid_json", "el cuerpo debe ser un JSON válido")
-		return 
+		return
 	}
 
 	res, err := h.svc.Login(r.Context(), req.Email, req.Password)
@@ -69,8 +69,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, h.logger, http.StatusOK, loginResponse{
 		AccessToken: res.AccessToken,
-		TokenType: "Bearer",
-		ExpiresIn: int(time.Until(res.ExpiresAt).Seconds()),
+		TokenType:   "Bearer",
+		ExpiresIn:   int(time.Until(res.ExpiresAt).Seconds()),
 	})
 
 }

@@ -7,8 +7,8 @@ import (
 )
 
 type errorDetail struct {
-	Code  	 string 	`json:"code"`
-	Message  string 	`json:"message"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
 }
 
 type errorResponse struct {
@@ -26,7 +26,7 @@ func writeJSON(w http.ResponseWriter, logger *slog.Logger, status int, body any)
 
 // writeError escribe un error con el formato estándar de a API.
 func writeError(w http.ResponseWriter, logger *slog.Logger, status int, code, message string) {
-	writeJSON(w, logger, status, errorResponse {
+	writeJSON(w, logger, status, errorResponse{
 		Error: errorDetail{Code: code, Message: message},
 	})
 }

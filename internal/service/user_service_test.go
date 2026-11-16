@@ -12,7 +12,7 @@ import (
 // fakeRepo cumple UserRepository sin tocar una base de datos.
 type fakeRepo struct {
 	saved domain.User // lo que el servicio intentó guardar
-	err error  // e error que queremos simular 
+	err   error       // e error que queremos simular
 }
 
 func (f *fakeRepo) Create(ctx context.Context, u domain.User) (domain.User, error) {
@@ -35,7 +35,7 @@ func (fakeHasher) Hash(plain string) (string, error) {
 func newTestService(repo *fakeRepo) *UserService {
 	s := NewUserService(repo, fakeHasher{})
 	s.today = func() time.Time {
-		return time.Date(2026, time.October, 28,0,0,0,0, time.UTC)
+		return time.Date(2026, time.October, 28, 0, 0, 0, 0, time.UTC)
 	}
 	return s
 }
@@ -43,18 +43,17 @@ func newTestService(repo *fakeRepo) *UserService {
 func validInput() RegisterInput {
 	return RegisterInput{
 		NewUserParams: domain.NewUserParams{
-			DocumentType: domain.DocumentDNI,
+			DocumentType:   domain.DocumentDNI,
 			DocumentNumber: "12345678",
-			FirstName: "Ana",
-			LastName: "Lopez",
-			BirthDate: time.Date(2000, time.January, 10,0,0,0,0, time.UTC),
-			Email: "ana@golazo.pe",
-			Phone: "987879653",
+			FirstName:      "Ana",
+			LastName:       "Lopez",
+			BirthDate:      time.Date(2000, time.January, 10, 0, 0, 0, 0, time.UTC),
+			Email:          "ana@golazo.pe",
+			Phone:          "987879653",
 		},
 		Password: "MiClave123",
 	}
 }
-
 
 func TestRegister_GuardarConHash(t *testing.T) {
 	repo := &fakeRepo{}
@@ -73,7 +72,7 @@ func TestRegister_GuardarConHash(t *testing.T) {
 	}
 }
 
-func TestRegister_ContrasenaDebil( t*testing.T) {
+func TestRegister_ContrasenaDebil(t *testing.T) {
 	repo := &fakeRepo{}
 	s := newTestService(repo)
 

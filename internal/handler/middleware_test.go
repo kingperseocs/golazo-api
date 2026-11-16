@@ -10,7 +10,7 @@ import (
 )
 
 // fakeTokens acepta solo el token "valido" y lo asocia al usuario "ana-id"
-type fakeTokens struct {}
+type fakeTokens struct{}
 
 func (fakeTokens) Parse(token string) (string, error) {
 	if token == "valido" {
@@ -23,11 +23,11 @@ func TestRequireAuth(t *testing.T) {
 	discard := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	tests := []struct {
-		name  string
-		header  string
-		wantStatus  int
-		wantCalled  bool
-	} {
+		name       string
+		header     string
+		wantStatus int
+		wantCalled bool
+	}{
 		{"token válido", "Bearer valido", http.StatusOK, true},
 		{"sin header", "", http.StatusUnauthorized, false},
 		{"token inválido", "Bearer falso", http.StatusUnauthorized, false},
@@ -37,10 +37,10 @@ func TestRequireAuth(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			called := false 
+			called := false
 			var gotUserID string
 
-			next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request){
+			next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				called = true
 				gotUserID, _ = UserIDFromContext(r.Context())
 				w.WriteHeader(http.StatusOK)
