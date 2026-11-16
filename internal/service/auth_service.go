@@ -51,7 +51,7 @@ func NewAuthService(users UserFinder, passwords PasswordComparer, tokens TokenIs
 	return &AuthService{users: users, passwords: passwords, tokens: tokens, dummyHash: dummyHash}
 }
 
-//Login valida las credenciales y emite un token de acceso
+// Login valida las credenciales y emite un token de acceso
 func (s *AuthService) Login(ctx context.Context, email, password string) (LoginResult, error) {
 
 	email = strings.ToLower(strings.TrimSpace(email))

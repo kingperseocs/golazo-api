@@ -24,7 +24,7 @@ func (f *fakeRepo) Create(ctx context.Context, u domain.User) (domain.User, erro
 	return u, nil
 }
 
-//fakeHasher cumple PasswordHasher de forma instantánea y predecible.
+// fakeHasher cumple PasswordHasher de forma instantánea y predecible.
 type fakeHasher struct{}
 
 func (fakeHasher) Hash(plain string) (string, error) {

@@ -12,7 +12,7 @@ type TokenParser interface {
 	Parse(token string) (string, error)
 }
 
-//userIDKey es la clave para guardar el id del usuario en el contexto
+// userIDKey es la clave para guardar el id del usuario en el contexto
 // Es un tipo propio privado para que ningún otro paquete pueda pisarla
 type userIDKey struct{}
 
@@ -23,7 +23,7 @@ func UserIDFromContext(ctx context.Context) (string, bool) {
 }
 
 // RequiereAuth devuelve un middleware que exige un token Bearer válido.
-//Si es válido, guarda el id del usuario en el contexto y llama a next
+// Si es válido, guarda el id del usuario en el contexto y llama a next
 func RequireAuth(tokens TokenParser, logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +45,7 @@ func RequireAuth(tokens TokenParser, logger *slog.Logger) func(http.Handler) htt
 	}
 }
 
-//unauthorized()
+// unauthorized()
 func unauthorized(w http.ResponseWriter, logger *slog.Logger) {
 	w.Header().Set("WWW-Authenticate", `Bearer realm="golazo-api"`)
 	writeError(w, logger, http.StatusUnauthorized, "unauthorized", "token ausente, inválido o vencido")
