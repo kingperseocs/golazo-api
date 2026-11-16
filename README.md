@@ -177,3 +177,4 @@ task test:integration
 | `POST` | `/wallets/{id}/deposits` | Sí (`Authorization: Bearer <token>`) |
 | `GET` | `/wallets/me` | Sí (`Authorization: Bearer <token>`) |
 | `POST` | `/wallets/{id}/withdrawals` | Sí (`Authorization: Bearer <token>`) |
+| `GET` | `/wallets/me/transactions` | Sí (`Authorization: Bearer <token>`) |

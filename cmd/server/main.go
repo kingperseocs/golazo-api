@@ -104,6 +104,7 @@ func run(logger *slog.Logger) error {
 	mux.Handle("GET /wallets/me", requireAuth(http.HandlerFunc(walletHandler.Me)))
 	mux.Handle("POST /wallets/{id}/deposits", requireAuth(http.HandlerFunc(walletHandler.Deposit)))     
 	mux.Handle("POST /wallets/{id}/withdrawals", requireAuth(http.HandlerFunc(walletHandler.Withdraw)))
+	mux.Handle("GET /wallets/me/transactions", requireAuth(http.HandlerFunc(walletHandler.MyTransactions)))
 	 
 
 	srv := &http.Server{

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/kingperseocs/golazo-api/internal/domain"
@@ -16,6 +17,7 @@ type WalletService interface {
 	Deposit(ctx context.Context, userID, walletID string, amountCents int64, key string) (domain.WalletTransaction, bool, error)
 	Withdraw(ctx context.Context, userID, walletID string, amountCents int64, key string) (domain.WalletTransaction, bool, error)
 	MyWallet(ctx context.Context, userID string) (domain.Wallet, error)
+	MyTransactions(ctx context.Context, userID string, after *domain.TxCursor, limit int) ([]domain.WalletTransaction, bool, error)
 }
 
 // movementFunc es la forma común de Deposit y Withdraw.
@@ -26,6 +28,18 @@ type WalletHandler struct {
 	svc    WalletService
 	logger *slog.Logger
 }
+
+// transactionsPage es la respuesta del historial: los movimientos de esta
+// página y el cursor para pedir la siguiente (null si no hay más).
+type transactionsPage struct {
+	Data       []transactionResponse `json:"data"`
+	NextCursor *string               `json:"next_cursor"`
+}
+
+const (
+	defaultPageSize = 20
+	maxPageSize     = 100
+)
 
 // NewWalletHandler crea el handler con sus dependencias.
 func NewWalletHandler(svc WalletService, logger *slog.Logger) *WalletHandler {
@@ -157,4 +171,71 @@ func (h *WalletHandler) Me(w http.ResponseWriter, r *http.Request) {
 		BalanceCents: wallet.BalanceCents,
 		UpdatedAt:    wallet.UpdatedAt,
 	})
+}
+
+
+// MyTransactions atiende GET /wallets/me/transactions?limit=20&cursor=...
+func (h *WalletHandler) MyTransactions(w http.ResponseWriter, r *http.Request) {
+	userID, ok := UserIDFromContext(r.Context())
+	if !ok {
+		h.logger.Error("historial sin usuario autenticado en el contexto")
+		writeError(w, h.logger, http.StatusInternalServerError, "internal_error", "ocurrió un error interno, intenta más tarde")
+		return
+	}
+
+	// 1. ¿Cuántos por página?
+	limit := defaultPageSize
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 {
+			writeError(w, h.logger, http.StatusBadRequest, "invalid_limit", "limit debe ser un número entero mayor que 0")
+			return
+		}
+		limit = min(n, maxPageSize)
+	}
+
+	// 2. ¿Desde dónde? Sin cursor es la primera página.
+	var after *domain.TxCursor
+	if raw := r.URL.Query().Get("cursor"); raw != "" {
+		c, err := decodeCursor(raw)
+		if err != nil {
+			writeError(w, h.logger, http.StatusBadRequest, "invalid_cursor", "el cursor no es válido")
+			return
+		}
+		after = &c
+	}
+
+	// 3. La página.
+	items, hasMore, err := h.svc.MyTransactions(r.Context(), userID, after, limit)
+	if err != nil {
+		h.logger.Error("historial falló", "error", err)
+		writeError(w, h.logger, http.StatusInternalServerError, "internal_error", "ocurrió un error interno, intenta más tarde")
+		return
+	}
+
+	// 4. La respuesta.
+	page := transactionsPage{Data: make([]transactionResponse, 0, len(items))}
+	for _, tx := range items {
+		page.Data = append(page.Data, transactionResponse{
+			ID:                tx.ID,
+			WalletID:          tx.WalletID,
+			Type:              string(tx.Type),
+			AmountCents:       tx.AmountCents,
+			BalanceAfterCents: tx.BalanceAfterCents,
+			CreatedAt:         tx.CreatedAt,
+		})
+	}
+
+	if hasMore {
+		last := items[len(items)-1]
+		next, err := encodeCursor(domain.TxCursor{CreatedAt: last.CreatedAt, ID: last.ID})
+		if err != nil {
+			h.logger.Error("codificar cursor falló", "error", err)
+			writeError(w, h.logger, http.StatusInternalServerError, "internal_error", "ocurrió un error interno, intenta más tarde")
+			return
+		}
+		page.NextCursor = &next
+	}
+
+	writeJSON(w, h.logger, http.StatusOK, page)
 }
