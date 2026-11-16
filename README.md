@@ -1,5 +1,7 @@
 # ⚽ Golazo API
 
+[![CI](https://github.com/kingperseocs/golazo-api/actions/workflows/ci.yml/badge.svg)](https://github.com/kingperseocs/golazo-api/actions/workflows/ci.yml)
+
 API backend de una plataforma de apuestas deportivas, inspirada en las casas de apuestas peruanas. Está escrita en **Go** con **PostgreSQL** y se construye por etapas: empieza como un monolito y evolucionará hacia un sistema distribuido.
 
 > Proyecto de aprendizaje y portafolio. No maneja dinero real.
