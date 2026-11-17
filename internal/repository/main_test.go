@@ -30,7 +30,7 @@ func newTestPool(t *testing.T) *pgxpool.Pool {
 	t.Cleanup(pool.Close)
 
 	_, err = pool.Exec(context.Background(),
-			"TRUNCATE bet_selections, bets, selections, markets, events, teams, wallet_transactions, wallets, users RESTART IDENTITY CASCADE")
+		"TRUNCATE bet_selections, bets, selections, markets, events, teams, wallet_transactions, wallets, users RESTART IDENTITY CASCADE")
 	if err != nil {
 		t.Fatalf("limpiar tablas: %v", err)
 	}

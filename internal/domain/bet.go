@@ -40,17 +40,16 @@ var (
 	ErrSelectionClosed   = errors.New("la selección ya no acepta apuestas")
 )
 
-
 // BetPick e sloq ue elige el usuario: una selección y la cuota que vio en pantanlla
 type BetPick struct {
 	SelectionID string
-	OddsMilli int64
+	OddsMilli   int64
 }
 
 // OddsChange es la cuota actual de una selección que cambió
 type OddsChange struct {
 	SelectionID string
-	OddsMilli int64
+	OddsMilli   int64
 }
 
 // OddsChangedError indica que una o más cuotas cambiaron desde que el usuario las vio. Tare las cuotas nuevas para mostrárselas
