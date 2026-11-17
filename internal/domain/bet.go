@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -26,7 +27,7 @@ const (
 	BetVoid    BetStatus = "void"
 )
 
-// Establecemos el error
+// Establecemos el mensaje de error
 var (
 	ErrStakeTooLow       = errors.New("el monto mínimo de apuesta es S/ 1.00")
 	ErrStakeTooHigh      = errors.New("el monto máximo de apuesta es S/ 5 0000.00")
@@ -35,7 +36,31 @@ var (
 	ErrSameEventInCombo  = errors.New("no se pueden combinar dos selecciones del mismo partido")
 	ErrInvalidOdds       = errors.New("cuato inválida")
 	ErrOddsTooHigh       = errors.New("la cuota total supera el máximo permitido ")
+	ErrSelectionNotFound = errors.New("selección no encontrada")
+	ErrSelectionClosed   = errors.New("la selección ya no acepta apuestas")
 )
+
+
+// BetPick e sloq ue elige el usuario: una selección y la cuota que vio en pantanlla
+type BetPick struct {
+	SelectionID string
+	OddsMilli int64
+}
+
+// OddsChange es la cuota actual de una selección que cambió
+type OddsChange struct {
+	SelectionID string
+	OddsMilli int64
+}
+
+// OddsChangedError indica que una o más cuotas cambiaron desde que el usuario las vio. Tare las cuotas nuevas para mostrárselas
+type OddsChangedError struct {
+	Changes []OddsChange
+}
+
+func (e *OddsChangedError) Error() string {
+	return fmt.Sprintf("cambió la cuota de %d selección(es)", len(e.Changes))
+}
 
 // BetSelection es una selección dentro de una apuesta, con la cuota congelada en el momento de apostar
 type BetSelection struct {

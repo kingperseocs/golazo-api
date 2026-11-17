@@ -52,6 +52,7 @@ type WalletTransaction struct {
 	Type              TransactionType
 	AmountCents       int64
 	BalanceAfterCents int64
+	ReferenceID       string // id de la apuesta, en movimiento de apuestas
 	IdempotencyKey    string
 	CreatedAt         time.Time
 }
@@ -61,6 +62,27 @@ type WalletTransaction struct {
 type TxCursor struct {
 	CreatedAt time.Time
 	ID        string
+}
+
+func (w *Wallet) PlaceStake(amountCents int64, betID string) (WalletTransaction, error) {
+	if amountCents <= 0 {
+		return WalletTransaction{}, ErrInvalidAmount
+	}
+	if amountCents > w.BalanceCents {
+		return WalletTransaction{}, ErrInsufficientFunds
+	}
+
+	w.BalanceCents -= amountCents
+
+	return WalletTransaction{
+		WalletID:          w.ID,
+		Type:              TxBetStake,
+		AmountCents:       -amountCents,
+		BalanceAfterCents: w.BalanceCents,
+		ReferenceID:       betID,
+		IdempotencyKey:    "bet:" + betID,
+	}, nil
+
 }
 
 // Deposit suma amountCents al saldo y devuelve el movimiento que lo registra.
