@@ -62,3 +62,16 @@ tasks:
     deps: [test:migrate]
     cmds:
       - go test -tags=integration -count=1 -v ./internal/repository/...
+  
+  fmt:
+    desc: Formatea todo el código
+    cmds:
+      - gofmt -w .
+  
+  check:
+    desc: Lo mismo que revisa el CI (ejecútalo antes de hacer push)
+    cmds:
+      - gofmt -w .
+      - go vet ./...
+      - go vet -tags=integration ./...
+      - task: test

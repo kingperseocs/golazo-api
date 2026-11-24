@@ -79,7 +79,7 @@ type Bet struct {
 	Status               BetStatus
 	IdempotencyKey       string
 	Selections           []BetSelection
-	PlaceAt              time.Time
+	PlacedAt             time.Time
 }
 
 // NewBet valida una nueva apuesta y calcula su total y su retorno posible

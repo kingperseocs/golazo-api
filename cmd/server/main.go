@@ -95,6 +95,10 @@ func run(logger *slog.Logger) error {
 	walletService := service.NewWalletService(walletRepo)
 	walletHandler := handler.NewWalletHandler(walletService, logger)
 
+	betRepo := repository.NewBetPostgres(pool)
+	betService := service.NewBetService(betRepo)
+	betHandler := handler.NewBetHandler(betService, logger)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", handler.HealthCheck)
 	mux.HandleFunc("POST /users", userHandler.Register)
@@ -104,6 +108,8 @@ func run(logger *slog.Logger) error {
 	mux.Handle("POST /wallets/{id}/deposits", requireAuth(http.HandlerFunc(walletHandler.Deposit)))
 	mux.Handle("POST /wallets/{id}/withdrawals", requireAuth(http.HandlerFunc(walletHandler.Withdraw)))
 	mux.Handle("GET /wallets/me/transactions", requireAuth(http.HandlerFunc(walletHandler.MyTransactions)))
+	// --
+	mux.Handle("POST /bets", requireAuth(http.HandlerFunc(betHandler.PlaceBet)))
 
 	srv := &http.Server{
 		Handler:      mux,

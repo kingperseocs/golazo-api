@@ -121,7 +121,7 @@ func (r *BetPostgres) PlaceBet(
 		err = dbTx.QueryRow(ctx, insertBetSQL,
 			newBet.UserID, newBet.WalletID, newBet.StakeCents, newBet.TotalOddsMilli,
 			newBet.PotentialReturnCents, string(newBet.Status), newBet.IdempotencyKey,
-		).Scan(&newBet.ID, &newBet.PlaceAt)
+		).Scan(&newBet.ID, &newBet.PlacedAt)
 		if err != nil {
 			return fmt.Errorf("insertar apuesta: %w", err)
 		}
@@ -221,7 +221,7 @@ func findBetKey(ctx context.Context, dbTx pgx.Tx, userID, key string) (domain.Be
 	var status string
 	err := dbTx.QueryRow(ctx, findBetByKeySQL, userID, key).Scan(
 		&b.ID, &b.UserID, &b.WalletID, &b.StakeCents, &b.TotalOddsMilli, &b.PotentialReturnCents,
-		&status, &b.IdempotencyKey, &b.PlaceAt,
+		&status, &b.IdempotencyKey, &b.PlacedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Bet{}, false, nil
