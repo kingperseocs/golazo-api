@@ -33,8 +33,8 @@ SELECT e.id, home.name, away.name, e.starts_at, e.status,
 	   m.id, m.type, m.status,
 	   s.id, s.code, s.odds_milli
 FROM upcoming e
-JOIN teams home	  ON home.id = e.home_team_id
-JOIN teams away   ON away.id = e.away_team_id
+JOIN teams home        ON home.id = e.home_team_id
+JOIN teams away        ON away.id = e.away_team_id
 JOIN markets m    ON m.event_id = e.id AND m.status IN ('open', 'suspended')
 JOIN selections s ON s.market_id = m.id
 ORDER BY e.starts_at, e.id, m.type,

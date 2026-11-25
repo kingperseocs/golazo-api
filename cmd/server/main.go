@@ -117,6 +117,8 @@ func run(logger *slog.Logger) error {
 
 	mux.HandleFunc("GET /events", eventHandler.List)
 
+	mux.Handle("GET /bets/me", requireAuth(http.HandlerFunc(betHandler.MyBets)))
+
 	srv := &http.Server{
 		Handler:      mux,
 		ReadTimeout:  10 * time.Second,

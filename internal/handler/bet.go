@@ -14,6 +14,7 @@ import (
 // BetService es lo que el handler necesita del servicio de apuestas.
 type BetService interface {
 	PlaceBet(ctx context.Context, userID string, stakeCents int64, picks []domain.BetPick, key string) (domain.Bet, bool, error)
+	MyBets(ctx context.Context, userID string, filter domain.BetListFilter, after *domain.TxCursor, limit int) ([]domain.BetTicket, bool, error)
 }
 
 // BetHandler atiende las rutas HTTP de apuestas.

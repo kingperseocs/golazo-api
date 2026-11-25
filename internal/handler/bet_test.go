@@ -137,3 +137,8 @@ func TestBetHandler_CuotaCambio_DevuelveLasNuevas(t *testing.T) {
 		t.Errorf("changes = %+v, se esperaba la cuota nueva 1950", body.Error.Changes)
 	}
 }
+
+// MyBets no se usa en los tests de PlaceBet; está para cumplir la interfaz.
+func (f *fakeBetService) MyBets(ctx context.Context, userID string, filter domain.BetListFilter, after *domain.TxCursor, limit int) ([]domain.BetTicket, bool, error) {
+	return nil, false, nil
+}
